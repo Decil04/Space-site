@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Form</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        form {
+            margin-bottom: 20px;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 15px;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        h2 {
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test Form Submission</h1>
+    
+    <h2>Create Room Form</h2>
+    <form action="/create_room" method="post">
+        <label for="username1">Username:</label>
+        <input type="text" id="username1" name="username" required>
+        
+        <label for="planet">Planet:</label>
+        <input type="text" id="planet" name="planet" value="earth">
+        
+        <button type="submit">Create Room</button>
+    </form>
+    
+    <h2>Join Room Form</h2>
+    <form action="/join_room" method="post">
+        <label for="username2">Username:</label>
+        <input type="text" id="username2" name="username" required>
+        
+        <label for="room_id">Room ID:</label>
+        <input type="text" id="room_id" name="room_id" required>
+        
+        <button type="submit">Join Room</button>
+    </form>
+</body>
+</html> 

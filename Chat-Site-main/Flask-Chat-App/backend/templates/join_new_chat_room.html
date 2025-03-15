@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ room_id }} - Space Chat</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #000;
+            color: #fff;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+        
+        .ui-container {
+            position: relative;
+            z-index: 2;
+            padding: 20px;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            text-align: center;
+            padding: 20px;
+            background-color: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+            backdrop-filter: blur(5px);
+            margin-bottom: 20px;
+            border: 1px solid #4fc3f7;
+        }
+        
+        .header h1 {
+            font-family: 'Orbitron', sans-serif;
+            color: #4fc3f7;
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #b3e5fc;
+        }
+        
+        .main-content {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .control-panel {
+            background-color: rgba(0, 0, 0, 0.8);
+            border: 2px solid #4fc3f7;
+            border-radius: 10px;
+            padding: 30px;
+            width: 600px;
+            max-width: 90%;
+            backdrop-filter: blur(10px);
+        }
+        
+        .control-panel h2 {
+            font-family: 'Orbitron', sans-serif;
+            color: #4fc3f7;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .control-section {
+            margin-bottom: 30px;
+        }
+        
+        .control-section h3 {
+            font-family: 'Orbitron', sans-serif;
+            color: #b3e5fc;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+            border-bottom: 1px solid rgba(79, 195, 247, 0.3);
+            padding-bottom: 5px;
+        }
+        
+        .control-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+        
+        .control-item {
+            background-color: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(79, 195, 247, 0.3);
+            border-radius: 5px;
+            padding: 15px;
+            transition: all 0.3s ease;
+        }
+        
+        .control-item:hover {
+            border-color: #4fc3f7;
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(79, 195, 247, 0.2);
+        }
+        
+        .control-item h4 {
+            font-family: 'Orbitron', sans-serif;
+            color: #4fc3f7;
+            margin-bottom: 10px;
+        }
+        
+        .control-item p {
+            color: #b3e5fc;
+            font-size: 0.9rem;
+            margin-bottom: 15px;
+        }
+        
+        .control-item button {
+            background-color: #0277bd;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Orbitron', sans-serif;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+        
+        .control-item button:hover {
+            background-color: #4fc3f7;
+        }
+        
+        .status-panel {
+            margin-top: 30px;
+            background-color: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(79, 195, 247, 0.3);
+            border-radius: 5px;
+            padding: 15px;
+        }
+        
+        .status-panel h3 {
+            font-family: 'Orbitron', sans-serif;
+            color: #4fc3f7;
+            margin-bottom: 10px;
+            font-size: 1.2rem;
+        }
+        
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(79, 195, 247, 0.1);
+        }
+        
+        .status-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        
+        .status-item .label {
+            color: #b3e5fc;
+        }
+        
+        .status-item .value {
+            color: #4fc3f7;
+            font-family: 'Orbitron', sans-serif;
+        }
+        
+        .action-buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 30px;
+        }
+        
+        .action-buttons button {
+            background-color: #0277bd;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Orbitron', sans-serif;
+            transition: all 0.3s ease;
+            flex: 1;
+            margin: 0 10px;
+        }
+        
+        .action-buttons button:hover {
+            background-color: #4fc3f7;
+            transform: scale(1.05);
+        }
+        
+        .action-buttons .danger {
+            background-color: #d32f2f;
+        }
+        
+        .action-buttons .danger:hover {
+            background-color: #f44336;
+        }
+        
+        .action-buttons a {
+            text-decoration: none;
+            flex: 1;
+            margin: 0 10px;
+        }
+        
+        .action-buttons a button {
+            width: 100%;
+        }
+        
+        #users-container {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 15px;
+        }
+        
+        .crew-member {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(79, 195, 247, 0.3);
+        }
+        
+        .crew-member .avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background-color: #4fc3f7;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+        
+        .crew-member .info {
+            flex: 1;
+        }
+        
+        .crew-member .username {
+            font-weight: bold;
+            color: #fff;
+        }
+        
+        .crew-member .role {
+            font-size: 0.8rem;
+            color: #b3e5fc;
+        }
+        
+        .crew-member .status {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #4caf50;
+            margin-left: 10px;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 10;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal-content {
+            background-color: rgba(0, 0, 0, 0.9);
+            border: 2px solid #4fc3f7;
+            border-radius: 10px;
+            padding: 30px;
+            width: 400px;
+            max-width: 90%;
+        }
+        
+        .modal-content h2 {
+            font-family: 'Orbitron', sans-serif;
+            color: #4fc3f7;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .modal-content p {
+            color: #b3e5fc;
+            margin-bottom: 20px;
+        }
+        
+        .modal-buttons {
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .modal-buttons button {
+            background-color: #0277bd;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Orbitron', sans-serif;
+            transition: all 0.3s ease;
+            flex: 1;
+            margin: 0 10px;
+        }
+        
+        .modal-buttons button:hover {
+            background-color: #4fc3f7;
+            transform: scale(1.05);
+        }
+        
+        .modal-buttons .cancel {
+            background-color: #455a64;
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    
+    <div class="ui-container">
+        <div class="header">
+            <h1>{{ room_id }}</h1>
+            <p>{{ "Major's Command Center" if is_owner else "Communication Terminal" }}</p>
+        </div>
+        
+        <div class="main-content">
+            <div class="control-panel">
+                <h2>Base Control Panel</h2>
+                
+                <div class="control-section">
+                    <h3>Base Status</h3>
+                    <div class="status-panel">
+                        <div class="status-item">
+                            <span class="label">Base ID:</span>
+                            <span class="value">{{ room_id }}</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="label">Your Role:</span>
+                            <span class="value">{{ role }}</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="label">Crew Count:</span>
+                            <span class="value" id="crew-count">Loading...</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="label">Base Status:</span>
+                            <span class="value">Operational</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="control-section">
+                    <h3>Crew Members</h3>
+                    <div id="users-container">
+                        <!-- Users will be added here dynamically -->
+                    </div>
+                </div>
+                
+                {% if is_owner %}
+                <div class="control-section">
+                    <h3>Major Controls</h3>
+                    <div class="control-grid">
+                        <div class="control-item">
+                            <h4>Member Limit</h4>
+                            <p>Set the maximum number of crew members allowed in this base.</p>
+                            <button onclick="showMemberLimitModal()">Set Limit</button>
+                        </div>
+                        <div class="control-item">
+                            <h4>Base ID</h4>
+                            <p>Change the identification code for this base.</p>
+                            <button onclick="showChangeIdModal()">Change ID</button>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <div class="action-buttons">
+                    <a href="/chat_existing_room/{{ room_id }}">
+                        <button>Enter Communication Room</button>
+                    </a>
+                    {% if is_owner %}
+                    <button class="danger" onclick="showDecommissionModal()">Decommission Base</button>
+                    {% else %}
+                    <button class="danger" onclick="leaveBase()">Leave Base</button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Member Limit Modal -->
+    <div id="member-limit-modal" class="modal">
+        <div class="modal-content">
+            <h2>Set Member Limit</h2>
+            <p>Set the maximum number of crew members allowed in this base.</p>
+            <form id="member-limit-form">
+                <div style="margin-bottom: 20px;">
+                    <input type="number" id="member-limit" min="1" max="100" value="50" style="width: 100%; padding: 10px; background-color: rgba(0, 0, 0, 0.5); border: 1px solid #4fc3f7; color: white; border-radius: 5px;">
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" class="cancel" onclick="hideModal('member-limit-modal')">Cancel</button>
+                    <button type="submit">Set Limit</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Change ID Modal -->
+    <div id="change-id-modal" class="modal">
+        <div class="modal-content">
+            <h2>Change Base ID</h2>
+            <p>Enter a new identification code for this base.</p>
+            <form id="change-id-form">
+                <div style="margin-bottom: 20px;">
+                    <input type="text" id="new-room-id" placeholder="New Base ID" style="width: 100%; padding: 10px; background-color: rgba(0, 0, 0, 0.5); border: 1px solid #4fc3f7; color: white; border-radius: 5px;">
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" class="cancel" onclick="hideModal('change-id-modal')">Cancel</button>
+                    <button type="submit">Change ID</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Decommission Modal -->
+    <div id="decommission-modal" class="modal">
+        <div class="modal-content">
+            <h2>Decommission Base</h2>
+            <p>Are you sure you want to decommission this base? This action cannot be undone.</p>
+            <div class="modal-buttons">
+                <button class="cancel" onclick="hideModal('decommission-modal')">Cancel</button>
+                <button class="danger" onclick="decommissionBase()">Decommission</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const socket = io();
+        const username = "{{ username }}";
+        const roomId = "{{ room_id }}";
+        const isOwner = "{{ is_owner }}" === "True";
+        
+        // ThreeJS variables
+        let scene, camera, renderer;
+        let planet;
+        let stars = [];
+        
+        // Initialize the scene
+        function init() {
+            // Create scene
+            scene = new THREE.Scene();
+            
+            // Create camera
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 5;
+            
+            // Create renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+            
+            // Add ambient light
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+            scene.add(ambientLight);
+            
+            // Add directional light
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+            directionalLight.position.set(5, 3, 5);
+            scene.add(directionalLight);
+            
+            // Create planet based on category
+            createPlanet();
+            
+            // Create stars
+            createStars();
+            
+            // Add event listeners
+            window.addEventListener('resize', onWindowResize);
+            
+            // Start animation loop
+            animate();
+        }
+        
+        // Create planet
+        function createPlanet() {
+            const planetGeometry = new THREE.SphereGeometry(2, 32, 32);
+            
+            // Set planet color based on category
+            let planetColor;
+            switch ("{{ room_id.split('-')[0] }}".toLowerCase()) {
+                case 'mercury':
+                    planetColor = 0xC0C0C0;
+                    break;
+                case 'venus':
+                    planetColor = 0xE6C229;
+                    break;
+                case 'earth':
+                    planetColor = 0x6b93d6;
+                    break;
+                case 'mars':
+                    planetColor = 0xc1440e;
+                    break;
+                case 'jupiter':
+                    planetColor = 0xE0A568;
+                    break;
+                case 'saturn':
+                    planetColor = 0xEAD6B8;
+                    break;
+                case 'uranus':
+                    planetColor = 0xAFDBF5;
+                    break;
+                case 'neptune':
+                    planetColor = 0x5B5DDF;
+                    break;
+                default:
+                    planetColor = 0x6b93d6; // Default to Earth color
+            }
+            
+            const planetMaterial = new THREE.MeshStandardMaterial({ 
+                color: planetColor,
+                roughness: 0.7,
+                metalness: 0.3
+            });
+            
+            planet = new THREE.Mesh(planetGeometry, planetMaterial);
+            planet.position.set(-3, 0, 0);
+            scene.add(planet);
+        }
+        
+        // Create background stars
+        function createStars() {
+            const starsGeometry = new THREE.BufferGeometry();
+            const starsMaterial = new THREE.PointsMaterial({
+                color: 0xffffff,
+                size: 0.1
+            });
+            
+            const starsVertices = [];
+            for (let i = 0; i < 5000; i++) {
+                const x = (Math.random() - 0.5) * 2000;
+                const y = (Math.random() - 0.5) * 2000;
+                const z = (Math.random() - 0.5) * 2000;
+                starsVertices.push(x, y, z);
+            }
+            
+            starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starsVertices, 3));
+            const starField = new THREE.Points(starsGeometry, starsMaterial);
+            scene.add(starField);
+        }
+        
+        // Handle window resize
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Rotate planet
+            if (planet) {
+                planet.rotation.y += 0.005;
+            }
+            
+            // Render scene
+            renderer.render(scene, camera);
+        }
+        
+        // Join the room when connected
+        socket.on('connect', () => {
+            socket.emit('join', {
+                username: username,
+                room: roomId
+            });
+        });
+        
+        // Handle user joined event
+        socket.on('user_joined', (data) => {
+            updateUsersList();
+        });
+        
+        // Handle user left event
+        socket.on('user_left', (data) => {
+            updateUsersList();
+        });
+        
+        // Handle user list update
+        socket.on('user_list_update', (data) => {
+            updateUsersListFromData(data.users);
+        });
+        
+        // Update users list
+        function updateUsersList() {
+            fetch(`/api/room/${roomId}/users`)
+                .then(response => response.json())
+                .then(users => {
+                    updateUsersListFromData(users);
+                })
+                .catch(error => {
+                    console.error('Error fetching users:', error);
+                });
+        }
+        
+        // Update users list from data
+        function updateUsersListFromData(users) {
+            const usersContainer = document.getElementById('users-container');
+            usersContainer.innerHTML = '';
+            
+            document.getElementById('crew-count').textContent = users.length;
+            
+            users.forEach(user => {
+                const userElement = document.createElement('div');
+                userElement.className = 'crew-member';
+                
+                const avatarElement = document.createElement('div');
+                avatarElement.className = 'avatar';
+                avatarElement.textContent = user.username.charAt(0).toUpperCase();
+                
+                const infoElement = document.createElement('div');
+                infoElement.className = 'info';
+                
+                const usernameElement = document.createElement('div');
+                usernameElement.className = 'username';
+                usernameElement.textContent = user.username;
+                
+                const roleElement = document.createElement('div');
+                roleElement.className = 'role';
+                roleElement.textContent = user.isOwner ? 'Major' : 'Crew Member';
+                
+                const statusElement = document.createElement('div');
+                statusElement.className = 'status';
+                
+                infoElement.appendChild(usernameElement);
+                infoElement.appendChild(roleElement);
+                
+                userElement.appendChild(avatarElement);
+                userElement.appendChild(infoElement);
+                userElement.appendChild(statusElement);
+                
+                usersContainer.appendChild(userElement);
+            });
+        }
+        
+        // Show modal
+        function showModal(modalId) {
+            document.getElementById(modalId).style.display = 'flex';
+        }
+        
+        // Hide modal
+        function hideModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+        
+        // Show member limit modal
+        function showMemberLimitModal() {
+            showModal('member-limit-modal');
+        }
+        
+        // Show change ID modal
+        function showChangeIdModal() {
+            showModal('change-id-modal');
+        }
+        
+        // Show decommission modal
+        function showDecommissionModal() {
+            showModal('decommission-modal');
+        }
+        
+        // Set member limit
+        function setMemberLimit(limit) {
+            fetch(`/api/room/${roomId}/set_limit`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ limit: limit })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    hideModal('member-limit-modal');
+                    alert('Member limit updated successfully');
+                } else {
+                    alert('Failed to update member limit: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error setting member limit:', error);
+                alert('Failed to update member limit');
+            });
+        }
+        
+        // Change room ID
+        function changeRoomId(newRoomId) {
+            fetch(`/api/room/${roomId}/update_id`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ new_room_id: newRoomId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    hideModal('change-id-modal');
+                    alert('Base ID updated successfully. Redirecting...');
+                    window.location.href = `/join_new_chat_room/${data.new_room_id}`;
+                } else {
+                    alert('Failed to update Base ID: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error changing room ID:', error);
+                alert('Failed to update Base ID');
+            });
+        }
+        
+        // Decommission base
+        function decommissionBase() {
+            fetch(`/api/room/${roomId}/close`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    hideModal('decommission-modal');
+                    alert('Base decommissioned successfully. Redirecting to home...');
+                    window.location.href = '/';
+                } else {
+                    alert('Failed to decommission base: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error decommissioning base:', error);
+                alert('Failed to decommission base');
+            });
+        }
+        
+        // Leave base
+        function leaveBase() {
+            window.location.href = '/';
+        }
+        
+        // Initialize when page loads
+        window.onload = function() {
+            // Initialize 3D scene
+            init();
+            
+            // Update users list
+            updateUsersList();
+            
+            // Set up form event listeners
+            document.getElementById('member-limit-form').addEventListener('submit', function(event) {
+                event.preventDefault();
+                const limit = parseInt(document.getElementById('member-limit').value);
+                setMemberLimit(limit);
+            });
+            
+            document.getElementById('change-id-form').addEventListener('submit', function(event) {
+                event.preventDefault();
+                const newRoomId = document.getElementById('new-room-id').value;
+                changeRoomId(newRoomId);
+            });
+        };
+    </script>
+</body>
+</html>

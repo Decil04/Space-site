@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ room_id }} - Space Chat</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #000;
+            color: #fff;
+            height: 100vh;
+            overflow: hidden;
+            background: radial-gradient(ellipse at bottom, #1B2735 0%, #090A0F 100%);
+        }
+        
+        .stars {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+        
+        .star {
+            position: absolute;
+            background-color: #fff;
+            border-radius: 50%;
+            animation: twinkle 5s infinite;
+        }
+        
+        @keyframes twinkle {
+            0% { opacity: 0.3; }
+            50% { opacity: 1; }
+            100% { opacity: 0.3; }
+        }
+        
+        .chat-container {
+            position: relative;
+            z-index: 1;
+            height: 100vh;
+            display: flex;
+            padding: 20px;
+        }
+        
+        .sidebar {
+            width: 300px;
+            background-color: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+            border: 1px solid #4fc3f7;
+            padding: 20px;
+            margin-right: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .room-info {
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(79, 195, 247, 0.3);
+        }
+        
+        .room-info h2 {
+            font-family: 'Orbitron', sans-serif;
+            color: #4fc3f7;
+            margin-bottom: 10px;
+        }
+        
+        .room-info p {
+            color: #b3e5fc;
+            font-size: 0.9rem;
+            margin-bottom: 15px;
+        }
+        
+        .room-actions {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+        
+        .room-actions button {
+            background-color: #0277bd;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Orbitron', sans-serif;
+            transition: all 0.3s ease;
+            font-size: 0.8rem;
+        }
+        
+        .room-actions button:hover {
+            background-color: #4fc3f7;
+        }
+        
+        .room-actions .danger {
+            background-color: #d32f2f;
+        }
+        
+        .room-actions .danger:hover {
+            background-color: #f44336;
+        }
+        
+        .crew-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+        
+        .crew-list h3 {
+            font-family: 'Orbitron', sans-serif;
+            color: #4fc3f7;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+        
+        .crew-member {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(79, 195, 247, 0.3);
+        }
+        
+        .crew-member .avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background-color: #4fc3f7;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+        
+        .crew-member .info {
+            flex: 1;
+        }
+        
+        .crew-member .username {
+            font-weight: bold;
+            color: #fff;
+        }
+        
+        .crew-member .role {
+            font-size: 0.8rem;
+            color: #b3e5fc;
+        }
+        
+        .crew-member .status {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #4caf50;
+            margin-left: 10px;
+        }
+        
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+            border: 1px solid #4fc3f7;
+            overflow: hidden;
+        }
+        
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        
+        .message {
+            margin-bottom: 15px;
+            max-width: 80%;
+        }
+        
+        .message.own-message {
+            margin-left: auto;
+        }
+        
+        .message-content {
+            padding: 10px 15px;
+            border-radius: 10px;
+            position: relative;
+        }
+        
+        .own-message .message-content {
+            background-color: rgba(79, 195, 247, 0.2);
+            border: 1px solid rgba(79, 195, 247, 0.5);
+        }
+        
+        .other-message .message-content {
+            background-color: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 0.8rem;
+        }
+        
+        .message-header .username {
+            font-weight: bold;
+            color: #4fc3f7;
+        }
+        
+        .message-header .timestamp {
+            color: rgba(255, 255, 255, 0.5);
+        }
+        
+        .message-text {
+            word-break: break-word;
+        }
+        
+        .input-container {
+            padding: 15px;
+            border-top: 1px solid rgba(79, 195, 247, 0.3);
+            display: flex;
+            align-items: center;
+        }
+        
+        .input-container input {
+            flex: 1;
+            padding: 10px 15px;
+            background-color: rgba(0, 0, 0, 0.5);
+            border: 1px solid #4fc3f7;
+            color: white;
+            border-radius: 5px;
+            margin-right: 10px;
+        }
+        
+        .input-container button {
+            background-color: #0277bd;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Orbitron', sans-serif;
+            transition: all 0.3s ease;
+        }
+        
+        .input-container button:hover {
+            background-color: #4fc3f7;
+        }
+        
+        .input-container .file-upload {
+            background-color: #455a64;
+            margin-right: 10px;
+        }
+        
+        .input-container .file-upload:hover {
+            background-color: #607d8b;
+        }
+        
+        .typing-indicator {
+            padding: 5px 15px;
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.5);
+            font-style: italic;
+        }
+        
+        /* Scrollbar styles */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.3);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: rgba(79, 195, 247, 0.5);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(79, 195, 247, 0.7);
+        }
+    </style>
+</head>
+<body>
+    <div class="stars" id="stars"></div>
+    
+    <div class="chat-container">
+        <div class="sidebar">
+            <div class="room-info">
+                <h2>{{ room_id }}</h2>
+                <p>{{ "Major's Command Center" if is_owner else "Communication Terminal" }}</p>
+                <div class="room-actions">
+                    <button onclick="copyRoomId()">Copy Base ID</button>
+                    <a href="/join_new_chat_room/{{ room_id }}?username={{ username }}">
+                        <button>Base Info</button>
+                    </a>
+                </div>
+            </div>
+            
+            <div class="crew-list">
+                <h3>Crew Members</h3>
+                <div id="users-container">
+                    <!-- Users will be added here dynamically -->
+                </div>
+            </div>
+        </div>
+        
+        <div class="main-content">
+            <div class="messages-container" id="messages-container">
+                <!-- Messages will be added here dynamically -->
+            </div>
+            
+            <div class="typing-indicator" id="typing-indicator"></div>
+            
+            <div class="input-container">
+                <button class="file-upload" onclick="document.getElementById('file-input').click()">
+                    <i class="fas fa-paperclip"></i>
+                </button>
+                <input type="file" id="file-input" style="display: none;">
+                <input type="text" id="message-input" placeholder="Type your message...">
+                <button onclick="sendMessage()">Send</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Socket.io setup
+        const socket = io();
+        const username = "{{ username }}";
+        const roomId = "{{ room_id }}";
+        const isOwner = "{{ is_owner }}" === "True";
+        
+        // Create stars
+        function createStars() {
+            const starsContainer = document.getElementById('stars');
+            const starCount = 200;
+            
+            for (let i = 0; i < starCount; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                
+                // Random size between 1 and 3 pixels
+                const size = Math.random() * 2 + 1;
+                star.style.width = `${size}px`;
+                star.style.height = `${size}px`;
+                
+                // Random position
+                star.style.left = `${Math.random() * 100}%`;
+                star.style.top = `${Math.random() * 100}%`;
+                
+                // Random animation delay
+                star.style.animationDelay = `${Math.random() * 5}s`;
+                
+                starsContainer.appendChild(star);
+            }
+        }
+        
+        // Join the room when connected
+        socket.on('connect', () => {
+            socket.emit('join', {
+                username: username,
+                room: roomId
+            });
+        });
+        
+        // Handle incoming messages
+        socket.on('message', (data) => {
+            addMessage(data);
+        });
+        
+        // Handle user joined event
+        socket.on('user_joined', (data) => {
+            updateUsersList();
+            addSystemMessage(`${data.username} has joined the base.`);
+        });
+        
+        // Handle user left event
+        socket.on('user_left', (data) => {
+            updateUsersList();
+            addSystemMessage(`${data.username} has left the base.`);
+        });
+        
+        // Handle user list update
+        socket.on('user_list_update', (data) => {
+            updateUsersListFromData(data.users);
+        });
+        
+        // Handle typing indicator
+        socket.on('typing', (data) => {
+            const typingIndicator = document.getElementById('typing-indicator');
+            if (data.username !== username) {
+                typingIndicator.textContent = `${data.username} is typing...`;
+                
+                // Clear typing indicator after 3 seconds
+                setTimeout(() => {
+                    typingIndicator.textContent = '';
+                }, 3000);
+            }
+        });
+        
+        // Handle message error
+        socket.on('message_error', (data) => {
+            alert(`Error: ${data.error}`);
+        });
+        
+        // Add message to the chat
+        function addMessage(data) {
+            const messagesContainer = document.getElementById('messages-container');
+            const messageElement = document.createElement('div');
+            messageElement.className = `message ${data.username === username ? 'own-message' : 'other-message'}`;
+            
+            messageElement.innerHTML = `
+                <div class="message-content">
+                    <div class="message-header">
+                        <span class="username">${data.username}</span>
+                        <span class="timestamp">${formatTimestamp(data.timestamp)}</span>
+                    </div>
+                    <div class="message-text">${data.content}</div>
+                </div>
+            `;
+            
+            messagesContainer.appendChild(messageElement);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+        
+        // Add system message
+        function addSystemMessage(text) {
+            const messagesContainer = document.getElementById('messages-container');
+            const messageElement = document.createElement('div');
+            messageElement.className = 'message system-message';
+            
+            messageElement.innerHTML = `
+                <div class="message-content" style="background-color: rgba(0, 0, 0, 0.3); text-align: center; color: #b3e5fc;">
+                    ${text}
+                </div>
+            `;
+            
+            messagesContainer.appendChild(messageElement);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+        
+        // Format timestamp
+        function formatTimestamp(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+        
+        // Send message
+        function sendMessage() {
+            const messageInput = document.getElementById('message-input');
+            const message = messageInput.value.trim();
+            
+            if (message) {
+                socket.emit('message', {
+                    username: username,
+                    room: roomId,
+                    message: message
+                });
+                
+                messageInput.value = '';
+            }
+        }
+        
+        // Update users list
+        function updateUsersList() {
+            fetch(`/api/room/${roomId}/users`)
+                .then(response => response.json())
+                .then(users => {
+                    updateUsersListFromData(users);
+                })
+                .catch(error => {
+                    console.error('Error fetching users:', error);
+                });
+        }
+        
+        // Update users list from data
+        function updateUsersListFromData(users) {
+            const usersContainer = document.getElementById('users-container');
+            usersContainer.innerHTML = '';
+            
+            users.forEach(user => {
+                const userElement = document.createElement('div');
+                userElement.className = 'crew-member';
+                
+                const avatarElement = document.createElement('div');
+                avatarElement.className = 'avatar';
+                avatarElement.textContent = user.username.charAt(0).toUpperCase();
+                
+                const infoElement = document.createElement('div');
+                infoElement.className = 'info';
+                
+                const usernameElement = document.createElement('div');
+                usernameElement.className = 'username';
+                usernameElement.textContent = user.username;
+                
+                const roleElement = document.createElement('div');
+                roleElement.className = 'role';
+                roleElement.textContent = user.isOwner ? 'Major' : 'Crew Member';
+                
+                const statusElement = document.createElement('div');
+                statusElement.className = 'status';
+                
+                infoElement.appendChild(usernameElement);
+                infoElement.appendChild(roleElement);
+                
+                userElement.appendChild(avatarElement);
+                userElement.appendChild(infoElement);
+                userElement.appendChild(statusElement);
+                
+                usersContainer.appendChild(userElement);
+            });
+        }
+        
+        // Copy room ID
+        function copyRoomId() {
+            navigator.clipboard.writeText(roomId);
+            alert('Base ID copied to clipboard!');
+        }
+        
+        // Handle typing event
+        document.getElementById('message-input').addEventListener('input', () => {
+            socket.emit('typing', {
+                username: username,
+                room: roomId
+            });
+        });
+        
+        // Handle enter key press
+        document.getElementById('message-input').addEventListener('keypress', (event) => {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        });
+        
+        // Initialize when page loads
+        window.onload = function() {
+            // Create stars
+            createStars();
+            
+            // Update users list
+            updateUsersList();
+            
+            // Add welcome message
+            addSystemMessage(`Welcome to ${roomId}! You are now connected.`);
+        };
+    </script>
+</body>
+</html>
